@@ -1,5 +1,8 @@
 
 from django.contrib import admin
+from django import forms
+from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from helpdesk import settings as helpdesk_settings
 from helpdesk.models import (
@@ -16,13 +19,15 @@ from helpdesk.models import (
     PreSetReply,
     Queue,
     Ticket,
-    TicketChange
+    TicketChange,
 )
 
 
 if helpdesk_settings.HELPDESK_KB_ENABLED:
     from helpdesk.models import KBCategory, KBItem
 
+if helpdesk_settings.HELPDESK_ENABLE_OBJECT_RELATIONS:
+    from helpdesk.models import ObjectRelation
 
 @admin.register(Queue)
 class QueueAdmin(admin.ModelAdmin):
@@ -144,3 +149,19 @@ class ChecklistAdmin(admin.ModelAdmin):
 
 admin.site.register(PreSetReply)
 admin.site.register(EscalationExclusion)
+
+if helpdesk_settings.HELPDESK_ENABLE_OBJECT_RELATIONS:
+    class ObjectRelationForm(forms.ModelForm):
+        MODEL_CHOICES = [(app.label, [(':'.join((app.label, model.__name__)), model.__name__) for model in app.get_models()]) for app in apps.get_app_configs()]
+        model = forms.ChoiceField(choices=MODEL_CHOICES)
+
+        def clean(self):
+            cleaned = super().clean()
+            if cleaned.get('pk_int') is None and cleaned.get('pk_uuid') is None and cleaned.get('pk_char') is None:
+                raise ValidationError(_('No pk value given'))
+            
+    @admin.register(ObjectRelation)
+    class ObjectRelationAdmin(admin.ModelAdmin):
+        list_display = ('__str__', 'ticket', 'model', 'object')
+        #list_filter = ('app_model')
+        form = ObjectRelationForm
