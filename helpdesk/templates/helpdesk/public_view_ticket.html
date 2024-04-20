@@ -53,6 +53,26 @@
 </tr>
 {% endif %}
 
+{% if helpdesk_settings.HELPDESK_ENABLE_OBJECT_RELATIONS %}
+<tr>
+  <th>{% trans "Related Objects" %}</th>
+  <td>
+    {% if ticket.related_objects.all.count > 0 %}
+    {% if ticket.related_objects.all.count == 1 %}
+    {% with relation=ticket.related_objects.first %}
+    <a href="{{ relation.object.get_absolute_url }}">{{ relation.object }}</a>
+    {% endwith %}
+    {% else %}
+    <ul>
+      {% for relation in ticket.related_objects.all %}
+      <li><a href="{{ relation.object.get_absolute_url }}">{{ relation.object }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% endif %}
+  </td>
+</tr>      
+{% endif %}
 <tr>
     <th colspan='2'>{% trans "Description" %}</th>
 </tr>

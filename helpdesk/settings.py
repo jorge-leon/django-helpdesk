@@ -66,6 +66,10 @@ HELPDESK_ANON_ACCESS_RAISES_404 = getattr(settings,
 HELPDESK_TICKETS_TIMELINE_ENABLED = getattr(
     settings, 'HELPDESK_TICKETS_TIMELINE_ENABLED', True)
 
+# Enable linking tickets to objects from other apps
+HELPDESK_ENABLE_OBJECT_RELATIONS = getattr(
+    settings, 'HELPDESK_ENABLE_OBJECT_RELATIONS', False)
+
 # show extended navigation by default, to all users, irrespective of staff
 # status?
 HELPDESK_NAVIGATION_ENABLED = getattr(
