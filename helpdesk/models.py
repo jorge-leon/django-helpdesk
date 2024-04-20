@@ -19,6 +19,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
+from django.apps import apps
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy as _
@@ -2168,3 +2169,60 @@ class ChecklistTask(models.Model):
 
     def __str__(self):
         return self.description
+
+
+class ObjectRelationManager(models.Manager):
+    def create_objectrelation(self, obj, ticket):
+        
+        relation = self.create(
+            ticket=ticket,
+            app_label=obj._meta.app_label,
+            model=obj._meta.model.__name__,
+        )
+        if type(obj.pk) == int:
+            relation.pk_int = obj.pk
+        elif obj.pk.__class__.__name__ == 'UUID':
+            relation.pk_uuid = obj.pk
+        else:
+            relation.pk_char = str(obj.pk)
+
+        relation.save()
+        return relation
+    
+class ObjectRelation(models.Model):
+    ticket = models.ForeignKey(
+        Ticket,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        related_name='related_objects',
+        related_query_name='object'
+    )
+    app_label = models.CharField(
+        max_length=50,
+        null=False,
+        blank=False
+    )
+    model = models.CharField(
+        max_length=50,
+        null=False,
+        blank=False
+    )
+    # First of the following is taken as primary key of the object to link
+    pk_int = models.PositiveBigIntegerField(null=True,blank=True)
+    pk_uuid = models.UUIDField(null=True,blank=True)
+    # Fallback for any other pk field
+    pk_char = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+
+    objects = ObjectRelationManager()
+
+    @property
+    def object(self):
+        model = apps.get_model(self.app_label, self.model)
+        if self.pk_int: return model.objects.get(pk=self.pk_int)
+        if self.pk_uuid: return model.objects.get(pk=self.pk_uuid)
+        return model.objects.get(pk=self.pk_char)
