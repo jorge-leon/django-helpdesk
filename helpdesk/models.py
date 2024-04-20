@@ -2198,16 +2198,17 @@ class ObjectRelation(models.Model):
         related_name='related_objects',
         related_query_name='object'
     )
-    app_label = models.CharField(
-        max_length=50,
-        null=False,
-        blank=False
-    )
     model = models.CharField(
-        max_length=50,
+        max_length=100,
         null=False,
-        blank=False
+        blank=False,
+        help_text=_("Formatted as 'app_label:model'")
     )
+
+    @property
+    def app_model(self):
+        return self.model.split(':')
+    
     # First of the following is taken as primary key of the object to link
     pk_int = models.PositiveBigIntegerField(null=True,blank=True)
     pk_uuid = models.UUIDField(null=True,blank=True)
@@ -2221,8 +2222,28 @@ class ObjectRelation(models.Model):
     objects = ObjectRelationManager()
 
     @property
+    def primary_key(self):
+        if not self.pk_int is None: return self.pk_int
+        if not self.pk_uuid is None: return self.pk_uuid
+        if not self.pk_char is None: return self.pk_char
+        return None
+    
+    @property
     def object(self):
-        model = apps.get_model(self.app_label, self.model)
-        if self.pk_int: return model.objects.get(pk=self.pk_int)
-        if self.pk_uuid: return model.objects.get(pk=self.pk_uuid)
-        return model.objects.get(pk=self.pk_char)
+        try:
+            model = apps.get_model(*self.app_model)
+        except LookupError:
+            return None
+        if self.primary_key is None: return None
+        try:
+            return model.objects.get(pk=self.primary_key)
+        except model.DoesNotExist:
+            return None
+
+    
+    def __str__(self):
+        try:
+            pk = self.object.pk
+        except:
+            pk = self.primary_key
+        return f"ticket {self.ticket.pk} - {self.model}:{pk}"
