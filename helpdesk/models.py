@@ -439,9 +439,9 @@ def mk_secret():
 class Ticket(models.Model):
     """
     To allow a ticket to be entered as quickly as possible, only the
-    bare minimum fields are required. These basically allow us to
-    sort and manage the ticket. The user can always go back and
-    enter more information later.
+    bare minimum fields are required: title and queue.
+    These basically allow us to sort and manage the ticket. The user
+    can always go back and enter more information later.
 
     A good example of this is when a customer is on the phone, and
     you want to give them a ticket ID as quickly as possible. You can
@@ -2251,6 +2251,9 @@ class ObjectRelation(models.Model):
             pk = self.primary_key
         return f"ticket {self.ticket.pk} - {self.model}:{pk}"
 
+def _obj_model(obj):
+    return ':'.join((obj._meta.app_label, obj._meta.model_name))
+
 # Public API for creation of linked tickets
 
 def link_ticket_to(ticket, obj):
@@ -2259,6 +2262,8 @@ def link_ticket_to(ticket, obj):
     Return the ObjectRelation
     """
     relation = ObjectRelation.objects.create(ticket=ticket)
+
+    relation.model = _obj_model(obj)
     
     if type(obj.pk) == int:
         relation.pk_int = obj.pk
@@ -2270,20 +2275,19 @@ def link_ticket_to(ticket, obj):
     relation.save()
     return relation
 
-def create_ticket_for(*objs, **kwargs):
+def create_ticket_for(title, queue, *objs, **kwargs):
     """
-    Create a ticket with data specified in kwargs.
-    Link it to all objects given as positional arguments.
+    Create a ticket with title in the specified queue and additional
+    data specified in kwargs.
+    Link it to all obj'ect's given as positional arguments.
     Return the ticket
     """
 
     if len(objs) == 0:
         raise ValueError('at least one object must be given to link with ticket')
-    ticket = Ticket.objects.create(**kwargs)
+    ticket = Ticket.objects.create(title=title, queue=queue, **kwargs)
 
     for obj in objs:
-        app_label=obj._meta.app_label,
-        model=obj._meta.model.__name__,
         link_ticket_to(ticket, obj)
 
     return ticket
@@ -2296,8 +2300,17 @@ def linked_tickets_of(obj):
       instead of pk_int or pk_uuid they are note taken into account.
     """
     if type(obj.pk) == int:
-        return Ticket.objects.filter(related_objects__pk_int=obj.pk)
+        return Ticket.objects.filter(
+            objectrelation__pk_int=obj.pk,
+            objectrelation__model=_obj_model(obj)
+        )
     elif type(obj.pk) == uuid.UUID:
-        return Ticket.objects.filter(related_objects__pk_uuid=obj.pk)
+        return Ticket.objects.filter(
+            objectrelation__pk_uuid=obj.pk,
+            objectrelation__model=_obj_model(obj)
+        )
     else:
-        return Ticket.objects.filter(related_objects__pk_str=obj.pk)
+        return Ticket.objects.filter(
+            objectrelation__pk_str=obj.pk,
+            objectrelation__model=_obj_model(obj)
+        )
