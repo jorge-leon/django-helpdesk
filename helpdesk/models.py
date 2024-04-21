@@ -2171,25 +2171,19 @@ class ChecklistTask(models.Model):
         return self.description
 
 
-class ObjectRelationManager(models.Manager):
-    def create_objectrelation(self, obj, ticket):
-        
-        relation = self.create(
-            ticket=ticket,
-            app_label=obj._meta.app_label,
-            model=obj._meta.model.__name__,
-        )
-        if type(obj.pk) == int:
-            relation.pk_int = obj.pk
-        elif obj.pk.__class__.__name__ == 'UUID':
-            relation.pk_uuid = obj.pk
-        else:
-            relation.pk_char = str(obj.pk)
-
-        relation.save()
-        return relation
-    
 class ObjectRelation(models.Model):
+    """
+    Relate objects to tickets.
+    Since we can not now in advance which objects might be available in a django
+    project, we store a reference to the key by:
+    app_label
+    model_name
+    primary key
+
+    The model field holds the string 'app_label:model_name' and the primary key is
+    stored in one of the fields pk_int, pk_uuid or pk_char.  In fact this is a premature
+    optimization, supposed to avoid extra type conversions.
+    """
     ticket = models.ForeignKey(
         Ticket,
         null=False,
@@ -2208,18 +2202,14 @@ class ObjectRelation(models.Model):
     @property
     def app_model(self):
         return self.model.split(':')
-    
-    # First of the following is taken as primary key of the object to link
+
     pk_int = models.PositiveBigIntegerField(null=True,blank=True)
     pk_uuid = models.UUIDField(null=True,blank=True)
-    # Fallback for any other pk field
     pk_char = models.CharField(
         max_length=100,
         null=True,
         blank=True
     )
-
-    objects = ObjectRelationManager()
 
     @property
     def primary_key(self):
@@ -2240,10 +2230,60 @@ class ObjectRelation(models.Model):
         except model.DoesNotExist:
             return None
 
-    
     def __str__(self):
         try:
             pk = self.object.pk
         except:
             pk = self.primary_key
         return f"ticket {self.ticket.pk} - {self.model}:{pk}"
+
+# Public API for creation of linked tickets
+
+def link_ticket_to(ticket, obj):
+    """
+    Link ticket to obj'ect.
+    Return the ObjectRelation
+    """
+    relation = ObjectRelation.objects.create(ticket=ticket)
+    
+    if type(obj.pk) == int:
+        relation.pk_int = obj.pk
+    elif type(obj.pk) == uuid.UUID:
+        relation.pk_uuid = obj.pk
+    else:
+        relation.pk_char = str(obj.pk)
+        
+    relation.save()
+    return relation
+
+def create_ticket_for(*objs, **kwargs):
+    """
+    Create a ticket with data specified in kwargs.
+    Link it to all objects given as positional arguments.
+    Return the ticket
+    """
+
+    if len(objs) == 0:
+        raise ValueError('at least one object must be given to link with ticket')
+    ticket = Ticket.objects.create(**kwargs)
+
+    for obj in objs:
+        app_label=obj._meta.app_label,
+        model=obj._meta.model.__name__,
+        link_ticket_to(ticket, obj)
+
+    return ticket
+
+        
+def linked_tickets_of(obj):
+    """
+    Return a QuerySet of all tickets linked to obj.
+    Note: If objects with int or uuid primary key are linked via the pk_char field
+      instead of pk_int or pk_uuid they are note taken into account.
+    """
+    if type(obj.pk) == int:
+        return Ticket.objects.filter(related_objects__pk_int=obj.pk)
+    elif type(obj.pk) == uuid.UUID:
+        return Ticket.objects.filter(related_objects__pk_uuid=obj.pk)
+    else:
+        return Ticket.objects.filter(related_objects__pk_str=obj.pk)
