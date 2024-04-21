@@ -1,0 +1,33 @@
+{% if helpdesk_settings.HELPDESK_ENABLE_OBJECT_RELATIONS %}
+{% load i18n %}
+<tr>
+  <th class="table-active">{% translate "Related Objects" %}</th>
+  <td colspan="3">
+    {% with count=ticket.objectrelations.count %}
+    {%   if count > 0 %}
+    {%     if count == 1 %}
+    {%       with relation=ticket.objectrelations.first %}
+    {%         if relation.object %}
+    <a href="{{ object.get_absolute_url }}">{{ relation.object }}</a>
+    {%         else %}
+    {%           trans "Related object not found (anymore):" %} {{ relation }}
+    {%         endif %}
+    {%       endwith %}
+    {%     else %}
+    <ul>
+      {%     for relation in ticket.objectrelations.all %}
+      <li>
+	{%     if relation.object %}
+	<a href="{{ relation.object.get_absolute_url }}">{{ relation.model }}: {{relation.object }}</a>
+	{%     else %}
+	{%       trans "Related object not found (anymore):" %} {{ relation }}
+	{%     endif %}
+      </li>
+      {%     endfor %}
+    </ul>
+    {%     endif %}
+    {%   endif %}
+    {% endwith %}
+  </td>
+</tr>
+{% endif %}

@@ -889,6 +889,20 @@ class Ticket(models.Model):
                     cfv.value = convert_value(value)
                     cfv.save()
 
+    @property
+    def related_objects(self):
+        """
+        Return a list objects linked to this ticket.
+        Notes:
+          - This is not a QuerySet.  Linked objects might be all from different models.
+          - Use self.related_objects_count() instead of len(self.related_objects)
+        """
+        return [relation.object for relation in self.objectrelations.all()]
+    
+    @property
+    def related_objects_count(self):
+        return self.objectrelations.count()
+
 
 class FollowUpManager(models.Manager):
 
@@ -2189,8 +2203,8 @@ class ObjectRelation(models.Model):
         null=False,
         blank=False,
         on_delete=models.CASCADE,
-        related_name='related_objects',
-        related_query_name='object'
+        related_name='objectrelations',
+        related_query_name='objectrelation'
     )
     model = models.CharField(
         max_length=100,

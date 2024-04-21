@@ -150,36 +150,7 @@
                             <td> <a href ="{{ticket.kbitem.query_url}}"> {{ticket.kbitem}} </a> </td>
                         </tr>
                     {% endif %}
-		    {% if helpdesk_settings.HELPDESK_ENABLE_OBJECT_RELATIONS %}
-		    <tr>
-		      <th class="table-active">{% trans "Related" %}</th>
-		      <td colspan="3">
-			{% if ticket.related_objects.all.count > 0 %}
-			{% if ticket.related_objects.all.count == 1 %}
-			{% with relation=ticket.related_objects.first %}
-			{% if relation.object %}
-			<a href="{{ relation.object.get_absolute_url }}">{{ relation.object }}</a>
-			{% else %}
-			{% trans "Related object not found (anymore):" %} {{ relation }}
-			{% endif %}
-			{% endwith %}
-			{% else %}
-			<ul>
-			  {% for relation in ticket.related_objects.all %}
-			  <li>
-			    {% if relation.object %}
-			    <a href="{{ relation.object.get_absolute_url }}">{{ relation.object }}</a>
-			    {% else %}
-			    {% trans "Related object not found (anymore):" %} {{ relation }}
-			    {% endif %}
-			  </li>
-			  {% endfor %}
-			</ul>
-			{% endif %}
-			{% endif %}
-		      </td>
-		    </tr>
-		    {% endif %}
+		    {% include "helpdesk/related_objects_list.html" %}
                     <tr>
                         <th class="table-active">{% trans "Attachments" %}</th>
                         <td colspan="3">
