@@ -8,7 +8,7 @@
     {%     if count == 1 %}
     {%       with relation=ticket.objectrelations.first %}
     {%         if relation.object %}
-    <a href="{{ object.get_absolute_url }}">{{ relation.object }}</a>
+    <a href="{{ relation.object.get_absolute_url }}">{{ relation.object }}</a>
     {%         else %}
     {%           trans "Related object not found (anymore):" %} {{ relation }}
     {%         endif %}
