@@ -87,6 +87,13 @@ HELPDESK_NAVIGATION_ENABLED = getattr(
 HELPDESK_BOOKMARKS = getattr(
     settings, 'HELPDESK_BOOKMARKS', [])
 
+# Unclutter the UI. Set to True to remove/adjust some UI elements
+# Currently:
+# - Ticket toolbar does not wrap.
+# - Edit details button in ticket_desc_table is removed.
+
+HELPDESK_UNCLUTTER = getattr(
+    settings, 'HELPDESK_UNCLUTTER', False)
 
 # use public CDNs to serve jquery and other javascript by default?
 # otherwise, use built-in static copy
