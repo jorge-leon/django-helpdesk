@@ -2253,6 +2253,21 @@ def _obj_model(obj):
 
 # Public API for creation of linked tickets
 
+def kbitem_choices(*slugs):
+    """
+    Return a choices dictionary with all KBItems of the categories specified by slugs.
+    If no slugs are given, all categories/items are included.
+    """
+    query = {'queue__isnull': False}
+    if len(slugs):
+        query |= {'slug__in': slugs}
+    categories = KBCategory.objects.filter(**query)
+    return [(category.title,
+             [(item.id, item.title)
+              for item in KBItem.objects.filter(category=category)])
+            for category in categories]
+
+
 def link_ticket_to(ticket, obj):
     """
     Link ticket to obj'ect.
@@ -2272,16 +2287,38 @@ def link_ticket_to(ticket, obj):
     relation.save()
     return relation
 
-def create_ticket_for(title, queue, *objs, **kwargs):
+
+
+def create_ticket_for(title, *objs, **kwargs):
     """
-    Create a ticket with title in the specified queue and additional
-    data specified in kwargs.
+    Create a ticket with given title and data specified in kwargs.
     Link it to all obj'ect's given as positional arguments.
-    Return the ticket
+
+    A queue is required for creating a ticket.
+    Either specify a 'queue' in kwargs, or a knowledbase item as 'kbitem'.
+    These can be specified also by their id. If both are specified, the
+    specified queue is taken instead of the knowledgebase items category.
+    If none of them is specifed the first queue found is used as fallback.
+    
+    Returns: the ticket
     """
 
     if len(objs) == 0:
         raise ValueError('at least one object must be given to link with ticket')
+
+    kbitem = kwargs.get('kbitem')
+    if type(kbitem) == int or type(kbitem) == str:
+        kwargs['kbitem'] = KBItem.objects.get(id=kbitem)
+    queue = kwargs.get('queue')
+    if queue is None:
+        if kbitem is None:
+            queue = Queue.objects.first()
+        else:
+            queue = kwargs['kbitem'].category.queue
+
+    if type(queue) == int or type(queue) == str:
+        queue = Queue.objects.get(id=queue)
+        
     ticket = Ticket.objects.create(title=title, queue=queue, **kwargs)
 
     for obj in objs:
