@@ -253,11 +253,13 @@
                     {% endif %}
                 </tbody>
             </table>
+	    {% if not helpdesk_settings.HELPDESK_UNCLUTTER %}
             <a href='#FurtherEditOptions'>
                 <button type="button" class="btn btn-sm btn-warning float-right" onclick="$('#FurtherEditOptions').fadeIn()">
                     <i class="fas fa-pencil-alt"></i>&nbsp;{% trans "Edit details" %}
                 </button>
             </a>
+	    {% endif %}
         </div>
         <!-- /.table-responsive -->
     </div>
