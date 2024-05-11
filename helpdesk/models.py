@@ -12,13 +12,13 @@ from .lib import format_time_spent, convert_value, daily_time_spent_calculation
 from .templated_email import send_templated_mail
 from .validators import validate_file_extension
 import datetime
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
-from django.apps import apps
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy as _
@@ -2253,18 +2253,20 @@ def _obj_model(obj):
 
 # Public API for creation of linked tickets
 
-def kbitem_choices(*slugs):
+def kbitem_choices(*slugs,**query):
     """
-    Return a choices dictionary with all KBItems of the categories specified by slugs.
-    If no slugs are given, all categories/items are included.
+    Return a choices dictionary with all KBItems of the categories specified by slugs and query.
+    If no slugs are given, all categories are searched.
+
+    Only categories with queues are considered.
     """
-    query = {'queue__isnull': False}
+    query |= {'queue__isnull': False}
     if len(slugs):
         query |= {'slug__in': slugs}
     categories = KBCategory.objects.filter(**query)
     return [(category.title,
              [(item.id, item.title)
-              for item in KBItem.objects.filter(category=category)])
+              for item in KBItem.objects.filter(enabled=True, category=category)])
             for category in categories]
 
 
