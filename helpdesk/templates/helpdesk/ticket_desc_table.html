@@ -192,6 +192,7 @@
                         </tr>
                     {% endif %}
 		    {% include "helpdesk/related_objects_list.html" %}
+		    {% if helpdesk_settings.HELPDESK_ENABLE_ATTACHMENTS %}
                     <tr>
                         <th class="table-active">{% trans "Attachments" %}</th>
                         <td colspan="3">
@@ -213,6 +214,7 @@
                             </ul>
                         </td>
                     </tr>
+                    {% endif %}
                     <tr>
                         <th class="table-active">{% trans "Checklists" %}</th>
                         <td colspan="3">
