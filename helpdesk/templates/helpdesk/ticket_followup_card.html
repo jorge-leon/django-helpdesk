@@ -1,0 +1,253 @@
+{% load i18n humanize ticket_to_link %}
+{% load static %}
+{% load helpdesk_util %}
+
+
+{% load ticket_to_link %}
+<div class="card mb-3">
+    {% comment %}
+    <div class="card-header"><i class="fas fa-clock fa-fw fa-lg"></i>&nbsp;{% trans "Follow-Ups" %}</div>
+    {% endcomment %}
+    <div class="card-body p-0">
+	<table class="table">
+	    <thead class="thead-light"><tr><th><i class="fas fa-clock fa-fw fa-lg"></i>&nbsp;{% trans "Follow-Ups" %}</th></tr></thead>
+	</table>
+	{% if ticket.followup_set.all %}
+        <div class="list-group p-1">
+            {% for followup in ticket.followup_set.all %}
+            <div class="list-group-item list-group-item-action mb-1 p-1">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="m-1">{{ followup.title|num_to_link }}</h5>
+                    <small>
+			<i class="fas fa-clock"></i>&nbsp;<span class='byline text-info'>
+			    {% if followup.user %}by {{ followup.user }},{% endif %}
+			    <span title='{{ followup.date|date:"DATETIME_FORMAT" }}'>{{ followup.date|naturaltime }}</span>
+			    {% if helpdesk_settings.HELPDESK_ENABLE_TIME_SPENT_ON_TICKET and followup.time_spent %}
+			    <span>{% trans "time spent" %}: {{ followup.time_spent_formated }}</span>
+			    {% endif %}
+			    {% if not followup.public %}<span class='private'>({% trans "Private" %})</span>{% endif %}
+			</span>
+			<!--- ugly long test to suppress the following if it will be empty, to save vertical space -->
+			{% with possible=helpdesk_settings.HELPDESK_SHOW_EDIT_BUTTON_FOLLOW_UP %}
+			{% if  possible and followup.user and request.user == followup.user and not followup.ticketchange_set.all or  possible and user.is_superuser and helpdesk_settings.HELPDESK_SHOW_DELETE_BUTTON_SUPERUSER_FOLLOW_UP %}
+			{% if helpdesk_settings.HELPDESK_SHOW_EDIT_BUTTON_FOLLOW_UP %}
+			{% if followup.user and request.user == followup.user and not followup.ticketchange_set.all %}
+			<a href="{% url 'helpdesk:followup_edit' ticket.id followup.id %}" class='followup-edit'><button type="button" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i></button></a>
+			{% endif %}
+			{% endif %}
+			{% if user.is_superuser and helpdesk_settings.HELPDESK_SHOW_DELETE_BUTTON_SUPERUSER_FOLLOW_UP %}
+			<a href="{% url 'helpdesk:followup_delete' ticket.id followup.id %}" class='followup-edit'><button type="button" class="btn btn-warning btn-sm"><i class="fas fa-trash"></i></button></a>
+			{% endif %}
+			{% endif %}{% endwith %}
+		    </small>
+                </div>
+                {% if followup.comment %}
+                <div class="comment m-1">{{ followup.get_markdown|urlizetrunc:50|num_to_link }}</div>
+                {% endif %}
+                {% for change in followup.ticketchange_set.all %}
+                {% if forloop.first %}<ul class="m-0 small">{% endif %}
+                    <li>{% blocktrans with change.field as field and change.old_value as old_value and change.new_value as new_value %}Changed {{ field }} from {{ old_value }} to {{ new_value }}.{% endblocktrans %}</li>
+                    {% if forloop.last %}</ul>{% endif %}
+                {% endfor %}
+                {% for attachment in followup.followupattachment_set.all %}
+		{% if forloop.first %}{% trans "Attachments" %}:<ul class='attachments'>{% endif %}
+                    <li><a href='{{ attachment.file.url }}'>{{ attachment.filename }}</a> ({{ attachment.mime_type }}, {{ attachment.size|filesizeformat }})
+			{% if followup.user and request.user == followup.user %}
+			<a href='{% url 'helpdesk:attachment_del' ticket.id attachment.id %}'><button class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button></a>
+			{% endif %}
+                    </li>
+                    {% if forloop.last %}</ul>{% endif %}
+                {% endfor %}
+            </div>
+            <!-- /.list-group-item -->
+            {% endfor %}
+        </div>
+        <!-- /.list-group -->
+	
+	{% endif %}
+	
+	<div class="card m-1">
+	    <div class="card-header bg-primary">
+		<i class="fas fa-comment fa-fw fa-lg"></i>
+		{% trans "New Follow-Up" %}
+	    </div>
+	    <div class="card-body p-0">
+		<form method='post' action='update/' enctype='multipart/form-data'>
+		    {% blocktrans %}
+		    <p>
+			Change attributes for updating the ticket. Please explain the reasons for the changes.
+			You can also just leave a comment on the ticket.
+		    </p>
+		    {% endblocktrans %}
+
+		    <table class="table table-sm table-border">
+			<tr>
+			    <th class="table-secondary">{% trans "New Status" %}</th>
+			    <td>
+				{% if ticket.can_be_resolved %}
+				<div class="form-group m-0">
+				    {% for status_choice in ticket.get_allowed_status_flow %}
+				    <label for='st_{{ status_choice.1|lower }}' class='m-0 {% if ticket.status == status_choice.0 %}active {% endif %}radio-inline'>{{ status_choice.1 }}</label>
+				    <input type='radio' name='new_status' value='{{ status_choice.0 }}' id='st_{{ status_choice.1|lower }}'{% if ticket.status == status_choice.0 %} checked='checked'{% endif %}>{% if forloop.last %}{% else %} &raquo;{% endif %}
+				    {% endfor %}
+				</div>
+				{% else %}
+				{% trans "The ticket status cannot be changed until the tickets it depends on are resolved." %}
+				{% endif %}
+			    </td>
+			</tr>
+			{% if helpdesk_settings.HELPDESK_ENABLE_TIME_SPENT_ON_TICKET and user.is_staff %}
+			<tr>
+			    <th class="table-secondary">{% trans "Time spent" %}</th>
+			    <td><input name='time_spent' type="time" /></td>
+			</tr>
+			{% endif %}
+  			<tr>
+			<tr>
+			    <th class="table-secondary">{% trans "New Priority" %}</th>
+			    <td>
+				<select id='id_priority' name='priority'>
+				    {% for p in priorities %}
+				    <option value='{{ p.0 }}'{% if p.0 == ticket.priority %} selected='selected'{% endif %}>{{ p.1 }}</option>
+				    {% endfor %}
+				</select>
+			    </td>
+			</tr>
+			<tr>
+			    <th class='table-secondary'>{% trans "Due on" %}</th>
+			    <td>{{ form.due_date }}</td>
+			</tr>
+			<tr>
+			    <th class="table-secondary">{% trans "New Title" %}</th>
+			    <td><input class="border-0" type='text' size="70" name='title' value='{{ ticket.title|escape }}' /></td>
+			</tr>
+			<tr>
+			    <th class="table-secondary">{% trans "New Owner" %}</th>
+			    <td>
+				<select id='id_owner' name='owner'>
+				    {% if ticket.assigned_to.id %}
+				    <option value='0'>{% trans "Unassign" %}</option>
+				    {% else %}
+				    <option value='0' selected>----</option>
+				    {% endif %}
+				    {% for u in active_users %}
+				    {% if u.id == ticket.assigned_to.id %}
+				    <option value='{{ u.id }}' selected>{{ u }}</option>
+				    {% else %}
+				    <option value='{{ u.id }}'>{{ u }}</option>
+				    {% endif %}
+				    {% endfor %}
+				</select>
+			    </td>
+			</tr>
+			<tr>
+			    <th class="table-secondary">{% trans "New Queue" %}</th>
+			    <td>
+				<select id='id_queue' name='queue'>
+				    {% for queue_id, queue_name in queues %}
+				    <option value='{{ queue_id }}'{% if queue_id == ticket.queue.id %} selected{% endif %}>{{ queue_name }}</option>{% endfor %}</select></td>
+			</tr>
+			<tr>
+			    <th class="table-secondary">{% trans "New Attachment(s)" %}</th>
+			    <td>
+				<div class="add_file_fields_wrap">
+				    <label class='btn btn-primary btn-sm btn-file'>
+					{% trans "Browse..." %} <input type="file" name='attachment' id='file0' style='display: none;'/>
+				    </label><span>&nbsp;</span><span id='selectedfilename0'>{% trans 'No files selected.' %}</span>
+
+				    <button class="add_file_field_button btn btn-success btn-xs">{% trans "Add Another File" %}</button>
+				    {% trans "Allowed file extensions" %}: {{ helpdesk_settings.HELPDESK_VALID_EXTENSIONS }}
+
+				</div>
+			    </td>
+			</tr>
+			{% if ticket.checklists.exists %}
+			<tr>
+			    <td colspan="2">
+				<div class="card mb-3">
+				    <div class="card-body p-0">
+					<table class="table m-0">
+					    <thead class="thead-light"><tr><th><i class="fas fa-clock fa-fw fa-lg"></i>&nbsp;{% trans "Checklists" %}</th></tr></thead>
+					</table>
+					<fieldset>
+					    <div class="row">
+						{% for checklist in ticket.checklists.all %}
+						<div class="col-sm-4 col-xs-12">
+						    <div class="card mb-1">
+							<div class="card-header">
+							    <h5>{{ checklist }}</h5>
+							</div>
+							<div class="card-body p-0">
+							    <div class="list-group">
+								{% for task in checklist.tasks.all %}
+								<div class="list-group-item"{% if task.completion_date %} title="{% trans "Completed on" %} {{ task.completion_date }}" {% endif %}>
+								    <label>
+									<input type="checkbox" name="checklist-{{ checklist.id }}" value="{{ task.id }}" {% if task.completion_date %} checked{% endif %}>
+									{{ task }}
+								    </label>
+								</div>
+								{% endfor %}
+							    </div>
+							</div>
+						    </div>
+						</div>
+						{% endfor %}
+					    </div>
+					</fieldset>
+				    </div>{# /card-body #}
+				</div>{# /card #}
+			    </td>
+			</tr>
+			{% endif %}
+			<tr>
+			    <th class="table-secondary">{% trans "Comment / Resolution" %}</th>
+			    <td>
+				{% blocktrans %}
+				You can insert ticket and queue details in your message. For more information, see the <a href='{{ context_help_url }}'>context help page</a>.
+				{% endblocktrans %}
+			    </td>
+			</tr>
+			{% if preset_replies %}
+			<tr>
+			    <td>{% trans "Insert a Pre-set Reply" %}</td>
+			    <td>
+				<select name='preset' id='id_preset'>
+				    <option value=''>------</option>
+				    {% for preset in preset_replies %}
+				    <option value='{{ preset.id }}'>{{ preset.name }}</option>
+				    {% endfor %}
+				</select>
+				{% trans "Selecting a pre-set reply will over-write the comment box which you can then modify to your liking." %}
+			    </td>
+			</tr>
+			{% endif %}
+			<tr>
+			    <td class="p-0" colspan="2">
+				<textarea class="border-0" rows='8' cols='70' name='comment' id='commentBox'></textarea>
+			    </td>
+			</tr>
+			{% if helpdesk_settings.HELPDESK_UPDATE_PUBLIC_DEFAULT %}
+			<tr style="visibility:collapse"><td colspan="2"><input type='hidden' name='public' value='1'></td></tr>
+			{% else %}
+			<tr>
+			    <th class="table-secondary">Publish update</th>
+			    <td>
+				<input type='checkbox' name='public' value='1' checked='checked' />
+				{% trans "If checked, the submitter will be e-mailed your comment or resolution." %}
+			    </td>
+			</tr>
+			{% endif %}
+		    </table>
+		    {% csrf_token %}
+		    <button class="btn btn-primary" type='submit'>{% trans "Add followup" %}</button>
+		</form>
+		</div>{# /.card-body #}
+	    </div>{# /.card #}
+    </div>{# /.card-body #}
+</div>
+{# /.card #}
+
+{# Emacs: #}
+{# Local Variables: #}
+{# sgml-basic-offset: 4 #}
+{# End: #}
