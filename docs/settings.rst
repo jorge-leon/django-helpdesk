@@ -61,6 +61,12 @@ Settings related to attachments:
   attached to tickets and followups, and emails are searched for
   attachments which are then attached to the ticket.  Also enables the
   ``HELPDESK_ALWAYS_SAVE_INCOMING_EMAIL_MESSAGE`` setting.
+
+  **Caution**: Set this to False, unless you have secured access to
+   the uploaded files. Otherwise anyone on the Internet will be able
+   to download your ticket attachments.
+
+   Attachments are enabled by default for backwards compatibility.
   
 - **HELPDESK_VALID_EXTENSIONS** Valid extensions for file types that can be attached to tickets. Note: This used to be called **VALID_EXTENSIONS** which is now deprecated.
 
