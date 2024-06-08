@@ -23,6 +23,9 @@ Bootstrap overrides
     display: block;
 }
 
+div.comment>p {
+    margin: 0;
+}
 .thumbnail.filterBox {
     float: left;
     border: solid #ccc 1px;
