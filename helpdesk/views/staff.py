@@ -80,7 +80,6 @@ from helpdesk.user import HelpdeskUser
 from helpdesk.update_ticket import update_ticket, subscribe_to_ticket_updates, return_ticketccstring_and_show_subscribe
 import helpdesk.views.abstract_views as abstract_views
 from helpdesk.views.permissions import MustBeStaffMixin
-import itertools
 import json
 import re
 from rest_framework import status
@@ -424,11 +423,9 @@ def view_ticket(request, ticket_id):
 
         return redirect('helpdesk:edit_ticket_checklist', ticket.id, checklist.id)
 
-    open_dependencies = ticket.ticketdependency.filter(depends_on__status__in=Ticket.OPEN_STATUSES)
-    dependencies = [d for d in itertools.chain(
-        open_dependencies,
-        ticket.ticketdependency.all().difference(open_dependencies)
-    )]
+    # Open tickets on top
+    dependencies = list(ticket.ticketdependency.filter(depends_on__status__in=Ticket.OPEN_STATUSES)) \
+        + list(ticket.ticketdependency.filter(depends_on__status__not_in=Ticket.OPEN_STATUSES))
     
     return render(request, 'helpdesk/ticket.html', {
         'ticket': ticket,
@@ -1674,7 +1671,7 @@ def ticket_dependency_add(request, ticket_id):
     ticket = get_object_or_404(Ticket, id=ticket_id)
     ticket_perm_check(request, ticket)
     if request.method == 'POST':
-        form = TicketDependencyForm(request.POST)
+        form = TicketDependencyForm(ticket, request.POST)
         if form.is_valid():
             ticketdependency = form.save(commit=False)
             ticketdependency.ticket = ticket
@@ -1682,7 +1679,7 @@ def ticket_dependency_add(request, ticket_id):
                 ticketdependency.save()
             return HttpResponseRedirect(reverse('helpdesk:view', args=[ticket.id]))
     else:
-        form = TicketDependencyForm()
+        form = TicketDependencyForm(ticket)
     return render(request, 'helpdesk/ticket_dependency_add.html', {
         'ticket': ticket,
         'form': form,
@@ -1710,7 +1707,7 @@ def ticket_resolves_add(request, ticket_id):
     depends_on = get_object_or_404(Ticket, id=ticket_id)
     ticket_perm_check(request, depends_on)
     if request.method == 'POST':
-        form = TicketResolvesForm(request.POST)
+        form = TicketResolvesForm(depends_on, request.POST)
         if form.is_valid():
             ticketdependency = form.save(commit=False)
             ticketdependency.depends_on = depends_on
@@ -1718,7 +1715,7 @@ def ticket_resolves_add(request, ticket_id):
                 ticketdependency.save()
             return HttpResponseRedirect(reverse('helpdesk:view', args=[depends_on.id]))
     else:
-        form = TicketResolvesForm()
+        form = TicketResolvesForm(depends_on)
     return render(request, 'helpdesk/ticket_resolves_add.html', {
         'depends_on': depends_on,
         'form': form,
