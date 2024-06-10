@@ -20,7 +20,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.db.models import Q
+from django.db.models import Q, Case, Value, When
 from django.forms import HiddenInput, inlineformset_factory, TextInput
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -423,9 +423,12 @@ def view_ticket(request, ticket_id):
 
         return redirect('helpdesk:edit_ticket_checklist', ticket.id, checklist.id)
 
-    # Open tickets on top
-    dependencies = list(ticket.ticketdependency.filter(depends_on__status__in=Ticket.OPEN_STATUSES)) \
-        + list(ticket.ticketdependency.filter(depends_on__status__not_in=Ticket.OPEN_STATUSES))
+    # List open tickets on top
+    dependencies = ticket.ticketdependency.annotate(
+        rank=Case(
+                When(depends_on__status__in=Ticket.OPEN_STATUSES, then=Value('1')),
+                default=Value('2')
+        )).order_by('rank')
     
     return render(request, 'helpdesk/ticket.html', {
         'ticket': ticket,
@@ -1676,7 +1679,7 @@ def ticket_dependency_add(request, ticket_id):
             ticketdependency.ticket = ticket
             if ticketdependency.ticket != ticketdependency.depends_on:
                 ticketdependency.save()
-            return HttpResponseRedirect(reverse('helpdesk:view', args=[ticket.id]))
+            return redirect(ticket.get_absolute_url())
     else:
         form = TicketDependencyForm(ticket)
     return render(request, 'helpdesk/ticket_dependency_add.html', {
@@ -1712,7 +1715,7 @@ def ticket_resolves_add(request, ticket_id):
             ticketdependency.depends_on = depends_on
             if ticketdependency.ticket != ticketdependency.depends_on:
                 ticketdependency.save()
-            return HttpResponseRedirect(reverse('helpdesk:view', args=[depends_on.id]))
+            return redirect(depends_on.get_absolute_url())
     else:
         form = TicketResolvesForm(depends_on)
     return render(request, 'helpdesk/ticket_resolves_add.html', {
